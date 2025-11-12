@@ -1,0 +1,7 @@
+{
+  "name": "ZIVA",
+  "description": "A comprehensive booking platform for barber, salon, and beauty parlour services, connecting customers with service providers. Features role-based dashboards for customers, providers, and administrators, with integrated Gemini AI for content generation.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
