@@ -35,6 +35,12 @@ export interface Service {
   homeServiceFee?: number; // New: Extra fee for home service
 }
 
+// Feat: New interface for group booking details
+export interface GroupMemberServices {
+  name: string; // e.g. "Person 1"
+  serviceIds: string[];
+}
+
 export interface Booking {
   id: string;
   serviceIds: string[];
@@ -47,6 +53,7 @@ export interface Booking {
   peopleCount: number;
   rescheduled?: boolean; // Added to track if a booking has been rescheduled
   isHomeService?: boolean; // New: To track if it was a home service booking
+  groupDetails?: GroupMemberServices[]; // New: For group booking details
 }
 
 export interface Offer {

@@ -40,6 +40,25 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
     return serviceIds.map(id => services.find(s => s.id === id)?.name).filter(Boolean).join(', ');
   };
   
+  const renderBookingDetails = (booking: Booking) => (
+      <div>
+        {booking.groupDetails && booking.groupDetails.length > 1 ? (
+          <>
+            <p><strong>Group Booking:</strong> {booking.peopleCount} people</p>
+            <ul className="list-disc list-inside text-sm text-gray-400 mt-1">
+              {booking.groupDetails.map((member, index) => (
+                <li key={index}><strong>{member.name}:</strong> {getServiceNames(member.serviceIds)}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p><strong>Services:</strong> {getServiceNames(booking.serviceIds)}</p>
+        )}
+        <p className="mt-1"><strong>Date:</strong> {booking.dateTime.toLocaleString()}</p>
+        <p><strong>Total:</strong> ₹{booking.totalAmount.toFixed(2)}</p>
+      </div>
+  );
+
   const upcomingBookings = myBookings.filter(b => b.status === 'upcoming');
   const pastBookings = myBookings.filter(b => b.status !== 'upcoming');
 
@@ -53,12 +72,7 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
           {upcomingBookings.map(booking => (
             <div key={booking.id} className="p-4 bg-gray-800 rounded-lg">
               <div className="flex justify-between items-start">
-                  <div>
-                    <p><strong>Services:</strong> {getServiceNames(booking.serviceIds)}</p>
-                    <p><strong>Date:</strong> {booking.dateTime.toLocaleString()}</p>
-                    <p><strong>Total:</strong> ₹{booking.totalAmount.toFixed(2)}</p>
-                    <p><strong>For:</strong> {booking.peopleCount} {booking.peopleCount > 1 ? 'people' : 'person'}</p>
-                  </div>
+                  {renderBookingDetails(booking)}
                   {booking.isHomeService && (
                       <span className="text-xs font-medium bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full flex-shrink-0">🏠 Home Service</span>
                   )}
@@ -78,14 +92,13 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
                 {pastBookings.map(booking => (
                     <div key={booking.id} className="p-4 bg-gray-800 rounded-lg opacity-70">
                         <div className="flex justify-between items-start">
-                            <div>
-                                <p><strong>Services:</strong> {getServiceNames(booking.serviceIds)}</p>
-                                <p><strong>Date:</strong> {booking.dateTime.toLocaleString()}</p>
+                            {renderBookingDetails(booking)}
+                            <div className="text-right">
                                 <p><strong>Status:</strong> <span className="capitalize">{booking.status}</span></p>
-                            </div>
-                            {booking.isHomeService && (
-                                <span className="text-xs font-medium bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full flex-shrink-0">🏠 Home Service</span>
-                            )}
+                                {booking.isHomeService && (
+                                    <span className="text-xs mt-1 inline-block font-medium bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full flex-shrink-0">🏠 Home Service</span>
+                                )}
+                           </div>
                         </div>
                     </div>
                 ))}

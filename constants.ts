@@ -24,15 +24,19 @@ export const MOCK_SERVICES: Service[] = [
 export const MOCK_BOOKINGS: Booking[] = [
   {
     id: 'booking-1',
-    serviceIds: ['service-1', 'service-2'],
+    serviceIds: ['service-1', 'service-2', 'service-4'],
     customerId: 'user-1',
     providerId: 'user-2',
     dateTime: new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-    totalAmount: 230,
+    totalAmount: 630,
     platformFee: 0,
     status: 'upcoming',
-    peopleCount: 1,
+    peopleCount: 2,
     rescheduled: false,
+    groupDetails: [
+        { name: 'Person 1', serviceIds: ['service-1', 'service-2'] }, // Haircut + trim
+        { name: 'Person 2', serviceIds: ['service-1', 'service-4'] }  // Haircut + massage
+    ]
   },
   {
     id: 'booking-2',

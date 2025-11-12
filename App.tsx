@@ -7,9 +7,11 @@ import CustomerDashboard from './components/customer/CustomerDashboard';
 import ProviderDashboard from './components/provider/ProviderDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import NotificationPopup from './components/common/NotificationPopup';
+import ApiKeySetup from './components/ApiKeySetup';
 import { Home, User as UserIcon, Shield } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem('gemini_api_key'));
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,14 +31,6 @@ const App: React.FC = () => {
     }, 1000);
   }, []);
   
-  const handleUpdateUser = (updatedUser: User) => {
-    setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (currentUser && currentUser.id === updatedUser.id) {
-      setCurrentUser(updatedUser);
-    }
-     addNotification('Profile updated successfully!', 'success');
-  };
-
   const addNotification = useCallback((message: string, type: Notification['type'] = 'info') => {
     const newNotif = { id: Date.now().toString(), message, type };
     setNotifications(prev => [...prev, newNotif]);
@@ -44,6 +38,20 @@ const App: React.FC = () => {
       setNotifications(prev => prev.filter(n => n.id !== newNotif.id));
     }, 5000);
   }, []);
+
+  const handleApiKeySubmit = (key: string) => {
+    localStorage.setItem('gemini_api_key', key);
+    setApiKey(key);
+    addNotification('API Key saved successfully!', 'success');
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
+    if (currentUser && currentUser.id === updatedUser.id) {
+      setCurrentUser(updatedUser);
+    }
+     addNotification('Profile updated successfully!', 'success');
+  };
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -67,6 +75,10 @@ const App: React.FC = () => {
         return <div>Invalid user role.</div>;
     }
   };
+
+  if (!apiKey) {
+    return <ApiKeySetup onKeySubmit={handleApiKeySubmit} />;
+  }
 
   if (isLoading) {
     return (

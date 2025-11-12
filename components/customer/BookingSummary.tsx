@@ -1,17 +1,17 @@
 import React from 'react';
-import { Service, PlatformFeeConfig } from '../../types';
+import { Service, PlatformFeeConfig, GroupMemberServices } from '../../types';
 import Button from '../common/Button';
 import Card from '../common/Card';
-import { AlertTriangle, Users, Calendar, Home } from 'lucide-react';
+import { AlertTriangle, Calendar, Home, Trash2, PlusCircle } from 'lucide-react';
 
 interface BookingSummaryProps {
   selectedServices: Service[];
-  peopleCount: number;
-  setPeopleCount: (count: number) => void;
+  groupMembers: GroupMemberServices[];
+  setGroupMembers: (members: GroupMemberServices[]) => void;
   bookingDateTime: Date;
   setBookingDateTime: (date: Date) => void;
   platformFeeConfig: PlatformFeeConfig;
-  onConfirm: () => void;
+  onProceedToPayment: () => void;
   onBack: () => void;
   isHomeServiceRequested: boolean;
   setIsHomeServiceRequested: (isRequested: boolean) => void;
@@ -19,17 +19,20 @@ interface BookingSummaryProps {
 
 const BookingSummary: React.FC<BookingSummaryProps> = ({
   selectedServices,
-  peopleCount,
-  setPeopleCount,
+  groupMembers,
+  setGroupMembers,
   bookingDateTime,
   setBookingDateTime,
   platformFeeConfig,
-  onConfirm,
+  onProceedToPayment,
   onBack,
   isHomeServiceRequested,
   setIsHomeServiceRequested,
 }) => {
-  const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0) * peopleCount;
+  const allServiceIdsInGroup = groupMembers.flatMap(member => member.serviceIds);
+  const servicesForSubtotal = allServiceIdsInGroup.map(id => selectedServices.find(s => s.id === id)).filter((s): s is Service => s !== undefined);
+    
+  const subtotal = servicesForSubtotal.reduce((sum, s) => sum + s.price, 0);
   
   let fee = 0;
   let feeLabel = 'Platform Fee';
@@ -37,14 +40,14 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
     fee = subtotal * (platformFeeConfig.value / 100);
     feeLabel = `Platform Fee (${platformFeeConfig.value}%)`;
   } else if (platformFeeConfig.type === 'fixed') {
-    fee = platformFeeConfig.value * peopleCount;
-    feeLabel = `Platform Fee (₹${platformFeeConfig.value} x ${peopleCount})`;
+    fee = platformFeeConfig.value * groupMembers.length;
+    feeLabel = `Platform Fee (₹${platformFeeConfig.value} x ${groupMembers.length})`;
   }
   
   const allServicesSupportHomeService = selectedServices.length > 0 && selectedServices.every(s => s.isHomeService);
 
   const homeServiceFee = (isHomeServiceRequested && allServicesSupportHomeService)
-    ? selectedServices.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0) * peopleCount
+    ? servicesForSubtotal.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0)
     : 0;
 
   const total = subtotal + fee + homeServiceFee;
@@ -59,32 +62,71 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
         setBookingDateTime(new Date(e.target.value));
     }
   };
+  
+  const handleAddPerson = () => {
+    setGroupMembers([
+        ...groupMembers,
+        { name: `Person ${groupMembers.length + 1}`, serviceIds: [] }
+    ]);
+  };
+
+  const handleRemovePerson = (index: number) => {
+    const updatedMembers = groupMembers.filter((_, i) => i !== index).map((member, i) => ({ ...member, name: `Person ${i + 1}` }));
+    setGroupMembers(updatedMembers);
+  };
+
+  const handleMemberServiceChange = (memberIndex: number, serviceId: string) => {
+    const updatedMembers = [...groupMembers];
+    const member = updatedMembers[memberIndex];
+    const serviceIndex = member.serviceIds.indexOf(serviceId);
+
+    if (serviceIndex > -1) {
+        member.serviceIds.splice(serviceIndex, 1);
+    } else {
+        member.serviceIds.push(serviceId);
+    }
+    setGroupMembers(updatedMembers);
+  };
 
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card className="max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold mb-6 text-pink-400 text-center">Booking Summary</h2>
       
-      <div className="space-y-3 mb-4">
-        {selectedServices.map(service => (
-          <div key={service.id} className="flex justify-between items-center text-gray-300">
-            <span>{service.name} (x{peopleCount})</span>
-            <span className="font-semibold">₹{service.price * peopleCount}</span>
-          </div>
-        ))}
-      </div>
+        <div className="space-y-4 mb-6">
+            <h3 className="text-lg font-semibold text-gray-300">Group Details ({groupMembers.length} People)</h3>
+            {groupMembers.map((member, memberIndex) => (
+                <div key={memberIndex} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="flex justify-between items-center mb-3">
+                        <p className="font-bold">{member.name}</p>
+                        {groupMembers.length > 1 && (
+                            <button onClick={() => handleRemovePerson(memberIndex)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">Select services for this person:</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {selectedServices.map(service => (
+                            <label key={service.id} className={`flex items-center gap-2 p-2 rounded-md cursor-pointer text-sm transition-colors ${member.serviceIds.includes(service.id) ? 'bg-pink-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                                <input 
+                                    type="checkbox"
+                                    checked={member.serviceIds.includes(service.id)}
+                                    onChange={() => handleMemberServiceChange(memberIndex, service.id)}
+                                    className="h-4 w-4 rounded bg-gray-700 border-gray-600 text-pink-500 focus:ring-pink-600 shrink-0"
+                                />
+                                <span>{service.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            ))}
+            <Button onClick={handleAddPerson} variant="secondary" className="w-full flex items-center justify-center gap-2">
+                <PlusCircle className="w-5 h-5" /> Add Another Person
+            </Button>
+        </div>
+
 
       <div className="space-y-6 my-6">
-        <div className="flex items-center gap-4">
-          <label htmlFor="peopleCount" className="font-medium flex items-center gap-2"><Users className="w-5 h-5"/> For how many people?</label>
-          <input 
-              type="number"
-              id="peopleCount"
-              value={peopleCount}
-              onChange={e => setPeopleCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              min="1"
-              className="w-20 bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-pink-500"
-          />
-        </div>
         <div className="flex items-center gap-4">
             <label htmlFor="bookingDateTime" className="font-medium flex items-center gap-2"><Calendar className="w-5 h-5"/> Select Date & Time</label>
             <input
@@ -127,6 +169,12 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
           <span>₹{total.toFixed(2)}</span>
         </div>
       </div>
+      
+       {groupMembers.some(m => m.serviceIds.length === 0) && (
+          <p className="text-red-400 text-sm text-center mt-4">
+              Each person in the group must have at least one service selected.
+          </p>
+      )}
 
       <div className="mt-6 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-300 text-sm flex items-center gap-2">
         <AlertTriangle className="w-5 h-5"/>
@@ -135,7 +183,13 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
 
       <div className="mt-8 flex gap-4">
         <Button variant="secondary" onClick={onBack} className="w-full">Back</Button>
-        <Button onClick={onConfirm} className="w-full">Proceed to Payment</Button>
+        <Button 
+            onClick={onProceedToPayment} 
+            className="w-full"
+            disabled={groupMembers.some(m => m.serviceIds.length === 0)}
+        >
+            Proceed to Payment
+        </Button>
       </div>
     </Card>
   );

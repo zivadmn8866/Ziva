@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Service, Booking, Query, PlatformFeeConfig } from '../../types';
+import { User, Service, Booking, Query, PlatformFeeConfig, GroupMemberServices } from '../../types';
 import LocationDiscovery from './LocationDiscovery';
 import BookingSummary from './BookingSummary';
 import MyBookings from './MyBookings';
@@ -28,7 +28,7 @@ type ActiveView = 'services' | 'bookings' | 'query' | 'profile';
 
 const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUpdateUser, addNotification, services, bookings, setBookings, platformFeeConfig, queries, setQueries }) => {
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-  const [peopleCount, setPeopleCount] = useState(1);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberServices[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('services');
   const [isBooking, setIsBooking] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
@@ -68,33 +68,50 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
     }
     setShowRazorpay(true);
   };
+  
+  const handleProceedToBook = () => {
+    // Initialize group with one person and all selected services
+    setGroupMembers([{
+        name: 'Person 1',
+        serviceIds: selectedServices.map(s => s.id),
+    }]);
+    setIsBooking(true);
+  };
 
-  const handleConfirmBooking = () => {
-    const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0) * peopleCount;
-    
+  const handleConfirmBooking = (finalGroupMembers: GroupMemberServices[]) => {
+    // Flattened list of all services selected across all members
+    const allServiceIds = finalGroupMembers.flatMap(member => member.serviceIds);
+    // Unique services to calculate subtotal correctly (a service object, not just id)
+    const servicesForSubtotal = allServiceIds.map(id => services.find(s => s.id === id)).filter((s): s is Service => s !== undefined);
+
+    const subtotal = servicesForSubtotal.reduce((sum, s) => sum + s.price, 0);
+
     let fee = 0;
     if (platformFeeConfig.type === 'percentage') {
       fee = subtotal * (platformFeeConfig.value / 100);
     } else if (platformFeeConfig.type === 'fixed') {
-      fee = platformFeeConfig.value * peopleCount;
+      fee = platformFeeConfig.value * finalGroupMembers.length;
     }
 
     const homeServiceFee = isHomeServiceRequested
-      ? selectedServices.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0) * peopleCount
+      ? servicesForSubtotal.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0)
       : 0;
+      
+    const uniqueServiceIds = [...new Set(allServiceIds)];
 
     const newBooking: Booking = {
       id: `booking-${Date.now()}`,
-      serviceIds: selectedServices.map(s => s.id),
+      serviceIds: uniqueServiceIds,
       customerId: user.id,
       providerId: selectedServices[0]?.providerId,
       dateTime: bookingDateTime,
       totalAmount: subtotal + fee + homeServiceFee,
       platformFee: fee,
       status: 'upcoming',
-      peopleCount,
+      peopleCount: finalGroupMembers.length,
       rescheduled: false,
       isHomeService: isHomeServiceRequested,
+      groupDetails: finalGroupMembers,
     };
     
     setBookings(prev => [newBooking, ...prev]);
@@ -104,7 +121,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
     setConfirmedBooking(newBooking);
     
     setSelectedServices([]);
-    setPeopleCount(1);
+    setGroupMembers([]);
     setIsBooking(false);
     setIsHomeServiceRequested(false);
   };
@@ -117,6 +134,10 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
   const handleConfirmationDone = () => {
     setConfirmedBooking(null);
     setActiveView('bookings');
+  };
+  
+  const handlePaymentSuccess = (finalGroupMembers: GroupMemberServices[]) => {
+      handleConfirmBooking(finalGroupMembers);
   };
 
   const renderContent = () => {
@@ -133,23 +154,25 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
     }
 
     if (showRazorpay) {
-      const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0) * peopleCount;
-      let fee = 0;
-      if (platformFeeConfig.type === 'percentage') {
-        fee = subtotal * (platformFeeConfig.value / 100);
-      } else if (platformFeeConfig.type === 'fixed') {
-        fee = platformFeeConfig.value * peopleCount;
-      }
-      const homeServiceFee = isHomeServiceRequested
-        ? selectedServices.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0) * peopleCount
-        : 0;
+        const allServiceIdsInGroup = groupMembers.flatMap(member => member.serviceIds);
+        const servicesForTotal = allServiceIdsInGroup.map(id => services.find(s => s.id === id)).filter((s): s is Service => s !== undefined);
+        const subtotal = servicesForTotal.reduce((sum, s) => sum + s.price, 0);
 
-      const totalAmount = subtotal + fee + homeServiceFee;
+        let fee = 0;
+        if (platformFeeConfig.type === 'percentage') {
+            fee = subtotal * (platformFeeConfig.value / 100);
+        } else if (platformFeeConfig.type === 'fixed') {
+            fee = platformFeeConfig.value * groupMembers.length;
+        }
+        const homeServiceFee = isHomeServiceRequested
+            ? servicesForTotal.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0)
+            : 0;
+        const totalAmount = subtotal + fee + homeServiceFee;
 
       return (
         <RazorpayPopup
           totalAmount={totalAmount}
-          onSuccess={handleConfirmBooking}
+          onSuccess={() => handlePaymentSuccess(groupMembers)}
           onClose={() => setShowRazorpay(false)}
         />
       );
@@ -159,12 +182,12 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
       return (
         <BookingSummary
           selectedServices={selectedServices}
-          peopleCount={peopleCount}
-          setPeopleCount={setPeopleCount}
+          groupMembers={groupMembers}
+          setGroupMembers={setGroupMembers}
           bookingDateTime={bookingDateTime}
           setBookingDateTime={setBookingDateTime}
           platformFeeConfig={platformFeeConfig}
-          onConfirm={handleProceedToPayment}
+          onProceedToPayment={handleProceedToPayment}
           onBack={() => setIsBooking(false)}
           isHomeServiceRequested={isHomeServiceRequested}
           setIsHomeServiceRequested={setIsHomeServiceRequested}
@@ -223,7 +246,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
         </nav>
         {!isBooking && activeView === 'services' && selectedServices.length > 0 && (
           <button
-            onClick={() => setIsBooking(true)}
+            onClick={handleProceedToBook}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
           >
             <ShoppingCart className="w-5 h-5" />

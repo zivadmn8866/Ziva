@@ -17,11 +17,11 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({ booking, serv
     return serviceIds.map(id => services.find(s => s.id === id)?.name).filter(Boolean).join(', ');
   };
   
-  const homeServiceFee = booking.isHomeService
+  const homeServiceFee = booking.isHomeService 
     ? booking.serviceIds.reduce((sum, id) => {
         const service = services.find(s => s.id === id);
         return sum + (service?.homeServiceFee || 0);
-      }, 0) * booking.peopleCount
+      }, 0) 
     : 0;
     
   const subtotal = booking.totalAmount - booking.platformFee - homeServiceFee;
@@ -42,10 +42,22 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({ booking, serv
             <span className="text-gray-400">Provider:</span>
             <strong>{provider?.shopName || 'N/A'}</strong>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">Services:</span>
-            <strong className="text-right">{getServiceNames(booking.serviceIds)}</strong>
-          </div>
+          {booking.groupDetails && booking.groupDetails.length > 0 ? (
+             <div className="pt-1">
+                <span className="text-gray-400">Group Booking ({booking.peopleCount} people):</span>
+                {booking.groupDetails.map((member, index) => (
+                  <div key={index} className="pl-4 text-sm mt-1">
+                    <strong>{member.name}:</strong>
+                    <span className="text-gray-300 ml-2">{getServiceNames(member.serviceIds)}</span>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="flex justify-between">
+                <span className="text-gray-400">Services:</span>
+                <strong className="text-right">{getServiceNames(booking.serviceIds)}</strong>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-gray-400">Appointment:</span>
             <strong>{booking.dateTime.toLocaleString()}</strong>
