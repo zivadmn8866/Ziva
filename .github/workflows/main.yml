@@ -1,0 +1,1 @@
+yaml name: ZIVA workflow on push to main on: push: branches: - main jobs: build: runs-on: ubuntu-latest steps: - uses: actions/checkout@v2 - name: Run Google AI Playground commands shell: sh run: | npx google-ai-playground-cli --command1 --command2 Remember to replace --command1 --command2 
