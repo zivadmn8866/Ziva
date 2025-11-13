@@ -1,44 +1,36 @@
-import { GoogleGenAI } from "@google/genai";
+// services/geminiService.ts
+// Client-side service that calls the serverless proxy at /api/gemini
 
-/**
- * Generates a service description using the Gemini API.
- * This function will attempt to call the Gemini API. If it fails (e.g., due to a missing API key),
- * it will log an error to the console and return a mock description.
- * @param serviceName The name of the service.
- * @returns A promise that resolves to a generated or mock description string.
- */
-export const generateServiceDescription = async (serviceName: string): Promise<string> => {
-  const apiKey = localStorage.getItem('gemini_api_key');
+export async function generateServiceDescription(serviceName: string): Promise<string> {
+  // Build payload according to the Gemini REST shape your server expects.
+  // Example payload — adjust to your server/proxy expectations:
+  const payload = {
+    // the proxy forwards this JSON body to the Gemini REST endpoint
+    // adapt fields to whatever your serverless proxy & Google endpoint expect
+    prompt: `Generate a creative, one-sentence description for a salon service named "${serviceName}"`,
+    // if your proxy expects the full generateContent shape, change accordingly
+  };
 
-  if (!apiKey) {
-    console.warn(
-      'Gemini API key not found in localStorage. Falling back to a mock description. ' +
-      'Please set up your API key in the app.'
-    );
-    // Simulate network delay for mock response
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return `A high-quality ${serviceName.toLowerCase()} service, tailored to your needs by our expert stylists. Experience the best in town.`;
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('Gemini proxy error:', res.status, text);
+    throw new Error(`Gemini proxy error: ${res.status} ${text}`);
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const prompt = `Generate a creative and appealing one-sentence description for a salon service named "${serviceName}". Focus on the benefits and luxurious experience.`;
+  const data = await res.json();
+  // adapt this to how your server returns Gemini response
+  // If the proxy returns raw Gemini generateContent response, extract text accordingly
+  // Example fallback:
+  if (typeof data === 'string') return data;
+  if (data?.output_text) return data.output_text;
+  if (data?.candidates?.[0]?.content) return data.candidates[0].content;
+  // If your proxy returns a different shape, update the logic above.
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // Using a fast and capable model for this task.
-      contents: prompt,
-    });
-
-    const description = response.text;
-    if (description) {
-        return description.trim();
-    }
-    throw new Error("Received an empty response from Gemini API.");
-
-  } catch (error) {
-    console.error("Error generating service description with Gemini:", error);
-    // Fallback in case of an API error
-    return `An excellent ${serviceName.toLowerCase()} service to meet your needs.`;
-  }
-};
+  return JSON.stringify(data);
+}
