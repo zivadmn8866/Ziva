@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
-import { Booking, Service } from '../../types';
+import { Booking, Service, Review } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import RescheduleModal from '../common/RescheduleModal';
+import Modal from '../common/Modal';
+import { Star } from 'lucide-react';
 
 interface MyBookingsProps {
   customerId: string;
@@ -11,10 +13,14 @@ interface MyBookingsProps {
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   services: Service[];
   addNotification: (message: string, type?: 'success' | 'info' | 'error') => void;
+  onAddReview: (review: Review) => void;
 }
 
-const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookings, services, addNotification }) => {
+const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookings, services, addNotification, onAddReview }) => {
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
   
   const myBookings = bookings.filter(b => b.customerId === customerId).sort((a,b) => b.dateTime.getTime() - a.dateTime.getTime());
 
@@ -30,11 +36,33 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
   
   const handleConfirmReschedule = (newDateTime: Date) => {
     if (!rescheduleBooking) return;
-    
     setBookings(prev => prev.map(b => b.id === rescheduleBooking.id ? { ...b, dateTime: newDateTime, rescheduled: true } : b));
     addNotification('Booking rescheduled successfully!', 'success');
     setRescheduleBooking(null);
   }
+
+  const handleSubmitReview = () => {
+      if (!reviewBookingId) return;
+      
+      const booking = bookings.find(b => b.id === reviewBookingId);
+      if (!booking) return;
+
+      const newReview: Review = {
+          id: `rev-${Date.now()}`,
+          bookingId: booking.id,
+          providerId: booking.providerId,
+          customerId: customerId,
+          rating,
+          comment,
+          date: new Date()
+      };
+
+      onAddReview(newReview);
+      addNotification('Thank you for your feedback!', 'success');
+      setReviewBookingId(null);
+      setComment('');
+      setRating(5);
+  };
 
   const getServiceNames = (serviceIds: string[]) => {
     return serviceIds.map(id => services.find(s => s.id === id)?.name).filter(Boolean).join(', ');
@@ -90,7 +118,7 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
         {pastBookings.length > 0 ? (
             <div className="space-y-4">
                 {pastBookings.map(booking => (
-                    <div key={booking.id} className="p-4 bg-gray-800 rounded-lg opacity-70">
+                    <div key={booking.id} className="p-4 bg-gray-800 rounded-lg opacity-70 hover:opacity-100 transition-opacity">
                         <div className="flex justify-between items-start">
                             {renderBookingDetails(booking)}
                             <div className="text-right">
@@ -100,6 +128,18 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
                                 )}
                            </div>
                         </div>
+                        {booking.status === 'completed' && !booking.reviewId && (
+                            <Button 
+                                variant="secondary" 
+                                className="mt-3 w-full text-sm"
+                                onClick={() => setReviewBookingId(booking.id)}
+                            >
+                                Rate & Review
+                            </Button>
+                        )}
+                         {booking.status === 'completed' && booking.reviewId && (
+                            <p className="text-sm text-green-400 mt-2 text-center">✓ Reviewed</p>
+                        )}
                     </div>
                 ))}
             </div>
@@ -113,6 +153,41 @@ const MyBookings: React.FC<MyBookingsProps> = ({ customerId, bookings, setBookin
             booking={rescheduleBooking}
           />
         )}
+
+        {/* Review Modal */}
+        <Modal 
+            isOpen={!!reviewBookingId} 
+            onClose={() => setReviewBookingId(null)} 
+            title="Rate your Experience"
+        >
+            <div className="space-y-4">
+                <div className="flex justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                        <button 
+                            key={star} 
+                            onClick={() => setRating(star)}
+                            className="focus:outline-none transition-transform hover:scale-110"
+                        >
+                            <Star className={`w-8 h-8 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}`} />
+                        </button>
+                    ))}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Comments</label>
+                    <textarea 
+                        rows={3}
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                        placeholder="Tell us what you liked..."
+                    />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="secondary" onClick={() => setReviewBookingId(null)}>Cancel</Button>
+                    <Button onClick={handleSubmitReview}>Submit Review</Button>
+                </div>
+            </div>
+        </Modal>
     </Card>
   );
 };

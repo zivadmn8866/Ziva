@@ -1,12 +1,12 @@
 
-import { User, Role, Service, Booking, Offer, Query } from './types';
+import { User, Role, Service, Booking, Offer, Query, Review, Transaction } from './types';
 import { HaircutIcon, ShaveIcon, FacialIcon, MassageIcon, ManicureIcon } from './components/icons';
 
 export const MOCK_USERS: User[] = [
-  { id: 'user-1', name: 'Alice', mobile: '1112223330', role: Role.CUSTOMER, password: 'password123', hasOnboarded: false },
-  { id: 'user-2', name: 'Bob Barber', mobile: '4445556660', role: Role.PROVIDER, shopName: "Bob's Classic Cuts", shopAddress: "123 Style Street, San Francisco", password: 'password123', email: 'bob@example.com', latitude: 37.7749, longitude: -122.4194 },
+  { id: 'user-1', name: 'Alice', mobile: '1112223330', role: Role.CUSTOMER, password: 'password123', hasOnboarded: false, walletBalance: 1500, loyaltyPoints: 250, tier: 'Silver' },
+  { id: 'user-2', name: 'Bob Barber', mobile: '4445556660', role: Role.PROVIDER, shopName: "Bob's Classic Cuts", shopAddress: "123 Style Street, San Francisco", password: 'password123', email: 'bob@example.com', latitude: 37.7749, longitude: -122.4194, isVerified: true, walletBalance: 5000 },
   { id: 'user-3', name: 'Ziva Admin', mobile: '9876543210', role: Role.ADMIN, password: 'admin123', email: 'zivadmn@gmail.com' },
-  { id: 'user-4', name: 'Carol Stylist', mobile: '7778889990', role: Role.PROVIDER, shopName: "Style House", shopAddress: "456 Fashion Ave, Oakland", password: 'password123', email: 'carol@example.com', latitude: 37.8044, longitude: -122.2711 },
+  { id: 'user-4', name: 'Carol Stylist', mobile: '7778889990', role: Role.PROVIDER, shopName: "Style House", shopAddress: "456 Fashion Ave, Oakland", password: 'password123', email: 'carol@example.com', latitude: 37.8044, longitude: -122.2711, isVerified: false, walletBalance: 0 },
 ];
 
 export const MOCK_SERVICES: Service[] = [
@@ -49,6 +49,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: 'completed',
     peopleCount: 1,
     isHomeService: false,
+    reviewId: 'review-1'
   },
 ];
 
@@ -80,4 +81,22 @@ export const MOCK_QUERIES: Query[] = [
     message: 'Are the products used in the facial organic?',
     createdAt: new Date(),
   },
+];
+
+export const MOCK_REVIEWS: Review[] = [
+  {
+    id: 'review-1',
+    bookingId: 'booking-2',
+    customerId: 'user-1',
+    providerId: 'user-2',
+    rating: 5,
+    comment: "Excellent service! Highly recommended.",
+    date: new Date(new Date().getTime() - 4 * 24 * 60 * 60 * 1000)
+  }
+];
+
+export const MOCK_TRANSACTIONS: Transaction[] = [
+  { id: 'tx-1', userId: 'user-1', amount: 500, type: 'debit', description: 'Payment for Facial', date: new Date(new Date().getTime() - 5 * 24 * 60 * 60 * 1000) },
+  { id: 'tx-2', userId: 'user-1', amount: 2000, type: 'credit', description: 'Added via UPI', date: new Date(new Date().getTime() - 10 * 24 * 60 * 60 * 1000) },
+  { id: 'tx-3', userId: 'user-2', amount: 450, type: 'credit', description: 'Payout for Booking #booking-2', date: new Date(new Date().getTime() - 4 * 24 * 60 * 60 * 1000) },
 ];

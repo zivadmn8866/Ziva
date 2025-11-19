@@ -1,3 +1,4 @@
+
 // Fix: Import `ComponentType` from React to resolve namespace error.
 import type { ComponentType } from 'react';
 
@@ -19,6 +20,11 @@ export interface User {
   hasOnboarded?: boolean; // Added to track customer onboarding
   latitude?: number;
   longitude?: number;
+  // New fields for Platform Architecture
+  isVerified?: boolean; // For Admin verification
+  walletBalance?: number;
+  loyaltyPoints?: number;
+  tier?: 'Silver' | 'Gold' | 'Platinum';
 }
 
 export interface Service {
@@ -54,6 +60,7 @@ export interface Booking {
   rescheduled?: boolean; // Added to track if a booking has been rescheduled
   isHomeService?: boolean; // New: To track if it was a home service booking
   groupDetails?: GroupMemberServices[]; // New: For group booking details
+  reviewId?: string; // Link to a review if one exists
 }
 
 export interface Offer {
@@ -83,4 +90,25 @@ export interface Notification {
   id: string;
   message: string;
   type: 'success' | 'info' | 'error';
+}
+
+// New Interfaces for Platform Features
+
+export interface Review {
+  id: string;
+  bookingId: string;
+  providerId: string;
+  customerId: string;
+  rating: number; // 1-5
+  comment: string;
+  date: Date;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'credit' | 'debit'; // credit = add money/refund, debit = payment
+  description: string;
+  date: Date;
 }

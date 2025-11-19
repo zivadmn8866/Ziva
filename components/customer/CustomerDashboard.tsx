@@ -1,14 +1,18 @@
+
 import React, { useState } from 'react';
-import { User, Service, Booking, Query, PlatformFeeConfig, GroupMemberServices } from '../../types';
+import { User, Service, Booking, Query, PlatformFeeConfig, GroupMemberServices, Transaction, Review } from '../../types';
+import { MOCK_TRANSACTIONS } from '../../constants';
 import LocationDiscovery from './LocationDiscovery';
 import BookingSummary from './BookingSummary';
 import MyBookings from './MyBookings';
 import RaiseQuery from './RaiseQuery';
 import PaymentConfirmation from './PaymentConfirmation';
 import RazorpayPopup from './RazorpayPopup';
+import Wallet from './Wallet';
+import LoyaltyRewards from './LoyaltyRewards';
 import ChangePasswordModal from '../common/ChangePasswordModal';
-import CustomerOnboarding from './CustomerOnboarding'; // Import the new component
-import { ShoppingCart, Calendar, HelpCircle, User as UserIcon } from 'lucide-react';
+import CustomerOnboarding from './CustomerOnboarding';
+import { ShoppingCart, Calendar, HelpCircle, User as UserIcon, Wallet as WalletIcon, Crown } from 'lucide-react';
 import Card from '../common/Card';
 
 interface CustomerDashboardProps {
@@ -22,11 +26,26 @@ interface CustomerDashboardProps {
   platformFeeConfig: PlatformFeeConfig;
   queries: Query[];
   setQueries: React.Dispatch<React.SetStateAction<Query[]>>;
+  reviews: Review[];
+  onAddReview: (review: Review) => void;
 }
 
-type ActiveView = 'services' | 'bookings' | 'query' | 'profile';
+type ActiveView = 'services' | 'bookings' | 'query' | 'profile' | 'wallet' | 'loyalty';
 
-const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUpdateUser, addNotification, services, bookings, setBookings, platformFeeConfig, queries, setQueries }) => {
+const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ 
+    user, 
+    users, 
+    onUpdateUser, 
+    addNotification, 
+    services, 
+    bookings, 
+    setBookings, 
+    platformFeeConfig, 
+    queries, 
+    setQueries,
+    reviews,
+    onAddReview
+}) => {
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberServices[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('services');
@@ -35,6 +54,9 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
   const [showRazorpay, setShowRazorpay] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isHomeServiceRequested, setIsHomeServiceRequested] = useState(false);
+  // State for wallet
+  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  
   const [bookingDateTime, setBookingDateTime] = useState<Date>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -70,7 +92,6 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
   };
   
   const handleProceedToBook = () => {
-    // Initialize group with one person and all selected services
     setGroupMembers([{
         name: 'Person 1',
         serviceIds: selectedServices.map(s => s.id),
@@ -78,10 +99,22 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
     setIsBooking(true);
   };
 
+  const handleAddMoney = (amount: number) => {
+      const newTx: Transaction = {
+          id: `tx-${Date.now()}`,
+          userId: user.id,
+          amount: amount,
+          type: 'credit',
+          description: 'Wallet Top-up',
+          date: new Date()
+      };
+      setTransactions(prev => [newTx, ...prev]);
+      onUpdateUser({ ...user, walletBalance: (user.walletBalance || 0) + amount });
+      addNotification(`₹${amount} added to wallet!`, 'success');
+  };
+
   const handleConfirmBooking = (finalGroupMembers: GroupMemberServices[]) => {
-    // Flattened list of all services selected across all members
     const allServiceIds = finalGroupMembers.flatMap(member => member.serviceIds);
-    // Unique services to calculate subtotal correctly (a service object, not just id)
     const servicesForSubtotal = allServiceIds.map(id => services.find(s => s.id === id)).filter((s): s is Service => s !== undefined);
 
     const subtotal = servicesForSubtotal.reduce((sum, s) => sum + s.price, 0);
@@ -97,6 +130,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
       ? servicesForSubtotal.reduce((sum, s) => sum + (s.homeServiceFee || 0), 0)
       : 0;
       
+    const totalAmount = subtotal + fee + homeServiceFee;
     const uniqueServiceIds = [...new Set(allServiceIds)];
 
     const newBooking: Booking = {
@@ -105,7 +139,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
       customerId: user.id,
       providerId: selectedServices[0]?.providerId,
       dateTime: bookingDateTime,
-      totalAmount: subtotal + fee + homeServiceFee,
+      totalAmount: totalAmount,
       platformFee: fee,
       status: 'upcoming',
       peopleCount: finalGroupMembers.length,
@@ -113,9 +147,29 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
       isHomeService: isHomeServiceRequested,
       groupDetails: finalGroupMembers,
     };
+
+    // Deduct from wallet if sufficient (logic for Payment Gateway simulation)
+    // For now, we assume Razorpay handles it or wallet is just a visual
+    
+    // Add loyalty points (10 points = 1 RS spent) and update Tier
+    const pointsEarned = Math.floor(totalAmount * 10);
+    const newPoints = (user.loyaltyPoints || 0) + pointsEarned;
+    let newTier: User['tier'] = user.tier || 'Silver';
+    
+    if (newPoints > 2000) newTier = 'Platinum';
+    else if (newPoints > 500) newTier = 'Gold';
+
+    onUpdateUser({ 
+        ...user, 
+        loyaltyPoints: newPoints,
+        tier: newTier
+    });
     
     setBookings(prev => [newBooking, ...prev]);
-    addNotification('Booking confirmed successfully!', 'success');
+    addNotification(`Booking confirmed! You earned ${pointsEarned} loyalty points.`, 'success');
+    if (newTier !== user.tier) {
+        addNotification(`Congratulations! You've been upgraded to ${newTier} Tier!`, 'success');
+    }
     
     setShowRazorpay(false);
     setConfirmedBooking(newBooking);
@@ -205,7 +259,18 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
           addNotification={addNotification}
         />;
       case 'bookings':
-        return <MyBookings customerId={user.id} bookings={bookings} setBookings={setBookings} services={services} addNotification={addNotification} />;
+        return <MyBookings 
+            customerId={user.id} 
+            bookings={bookings} 
+            setBookings={setBookings} 
+            services={services} 
+            addNotification={addNotification}
+            onAddReview={onAddReview}
+        />;
+      case 'wallet':
+          return <Wallet user={user} transactions={transactions} onAddMoney={handleAddMoney} />;
+      case 'loyalty':
+          return <LoyaltyRewards user={user} />;
       case 'query':
         return <RaiseQuery user={user} queries={queries} setQueries={setQueries} addNotification={addNotification} />;
       case 'profile':
@@ -214,6 +279,8 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
           <div className="space-y-2">
             <p><strong>Name:</strong> {user.name}</p>
             <p><strong>Mobile:</strong> {user.mobile}</p>
+            <p><strong>Wallet Balance:</strong> ₹{user.walletBalance?.toFixed(2) || '0.00'}</p>
+            <p><strong>Loyalty Tier:</strong> {user.tier || 'Silver'}</p>
           </div>
           <button onClick={() => setIsPasswordModalOpen(true)} className="mt-4 text-pink-400 hover:underline">Change Password</button>
         </Card>;
@@ -225,19 +292,21 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
   const navItems: { view: ActiveView, label: string, icon: React.ReactNode }[] = [
       { view: 'services', label: 'Services', icon: <ShoppingCart className="w-5 h-5" /> },
       { view: 'bookings', label: 'My Bookings', icon: <Calendar className="w-5 h-5" /> },
-      { view: 'query', label: 'Raise Query', icon: <HelpCircle className="w-5 h-5" /> },
+      { view: 'wallet', label: 'Wallet', icon: <WalletIcon className="w-5 h-5" /> },
+      { view: 'loyalty', label: 'Rewards', icon: <Crown className="w-5 h-5" /> },
+      { view: 'query', label: 'Support', icon: <HelpCircle className="w-5 h-5" /> },
       { view: 'profile', label: 'Profile', icon: <UserIcon className="w-5 h-5" /> },
   ];
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 overflow-x-auto pb-2">
         <nav className="flex space-x-2 bg-gray-900 p-2 rounded-lg">
             {navItems.map(item => (
                  <button
                     key={item.view}
                     onClick={() => { setActiveView(item.view); setIsBooking(false); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeView === item.view ? 'bg-pink-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeView === item.view ? 'bg-pink-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
                   >
                     {item.icon}
                     {item.label}
@@ -247,7 +316,7 @@ const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, users, onUp
         {!isBooking && activeView === 'services' && selectedServices.length > 0 && (
           <button
             onClick={handleProceedToBook}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ml-4 whitespace-nowrap"
           >
             <ShoppingCart className="w-5 h-5" />
             Book Now ({selectedServices.length})

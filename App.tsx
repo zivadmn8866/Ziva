@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { User, Role, Notification, PlatformFeeConfig } from './types';
-import { MOCK_USERS, MOCK_SERVICES, MOCK_BOOKINGS, MOCK_OFFERS, MOCK_QUERIES } from './constants';
+import { User, Role, Notification, PlatformFeeConfig, Review } from './types';
+import { MOCK_USERS, MOCK_SERVICES, MOCK_BOOKINGS, MOCK_OFFERS, MOCK_QUERIES, MOCK_REVIEWS } from './constants';
 import AuthScreen from './components/AuthScreen';
 import CustomerDashboard from './components/customer/CustomerDashboard';
 import ProviderDashboard from './components/provider/ProviderDashboard';
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState(MOCK_BOOKINGS);
   const [offers, setOffers] = useState(MOCK_OFFERS);
   const [queries, setQueries] = useState(MOCK_QUERIES);
+  const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
   const [platformFeeConfig, setPlatformFeeConfig] = useState<PlatformFeeConfig>({ type: 'none', value: 0 });
 
   useEffect(() => {
@@ -62,15 +63,58 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
   
+  const handleAddReview = (review: Review) => {
+      setReviews(prev => [review, ...prev]);
+      // Also update the booking to link the review
+      setBookings(prev => prev.map(b => b.id === review.bookingId ? { ...b, reviewId: review.id } : b));
+  };
+  
   const renderDashboard = () => {
     if (!currentUser) return null;
     switch (currentUser.role) {
       case Role.CUSTOMER:
-        return <CustomerDashboard user={currentUser} users={users} addNotification={addNotification} services={services} bookings={bookings} setBookings={setBookings} platformFeeConfig={platformFeeConfig} queries={queries} setQueries={setQueries} onUpdateUser={handleUpdateUser} />;
+        return <CustomerDashboard 
+            user={currentUser} 
+            users={users} 
+            addNotification={addNotification} 
+            services={services} 
+            bookings={bookings} 
+            setBookings={setBookings} 
+            platformFeeConfig={platformFeeConfig} 
+            queries={queries} 
+            setQueries={setQueries} 
+            onUpdateUser={handleUpdateUser}
+            reviews={reviews}
+            onAddReview={handleAddReview}
+        />;
       case Role.PROVIDER:
-        return <ProviderDashboard user={currentUser} users={users} onUpdateUser={handleUpdateUser} addNotification={addNotification} services={services} setServices={setServices} offers={offers} setOffers={setOffers} bookings={bookings} setBookings={setBookings} queries={queries} setQueries={setQueries} />;
+        return <ProviderDashboard 
+            user={currentUser} 
+            users={users} 
+            onUpdateUser={handleUpdateUser} 
+            addNotification={addNotification} 
+            services={services} 
+            setServices={setServices} 
+            offers={offers} 
+            setOffers={setOffers} 
+            bookings={bookings} 
+            setBookings={setBookings} 
+            queries={queries} 
+            setQueries={setQueries} 
+            reviews={reviews}
+        />;
       case Role.ADMIN:
-        return <AdminDashboard user={currentUser} users={users} onUpdateUser={handleUpdateUser} addNotification={addNotification} offers={offers} setOffers={setOffers} platformFeeConfig={platformFeeConfig} setPlatformFeeConfig={setPlatformFeeConfig} queries={queries} />;
+        return <AdminDashboard 
+            user={currentUser} 
+            users={users} 
+            onUpdateUser={handleUpdateUser} 
+            addNotification={addNotification} 
+            offers={offers} 
+            setOffers={setOffers} 
+            platformFeeConfig={platformFeeConfig} 
+            setPlatformFeeConfig={setPlatformFeeConfig} 
+            queries={queries} 
+        />;
       default:
         return <div>Invalid user role.</div>;
     }
@@ -118,7 +162,6 @@ const App: React.FC = () => {
       </main>
       <div className="fixed top-5 right-5 z-50 space-y-2">
         {notifications.map(notif => (
-          // Fix: Spread the `notif` object to pass all required props, including `id`, to NotificationPopup.
           <NotificationPopup key={notif.id} {...notif} onClose={() => setNotifications(prev => prev.filter(n => n.id !== notif.id))} />
         ))}
       </div>
