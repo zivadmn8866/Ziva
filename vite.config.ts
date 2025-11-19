@@ -2,26 +2,23 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-export default defineConfig(({ mode }) => {
+export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
-  return {
+  return defineConfig({
     server: {
       port: 3000,
       host: "0.0.0.0",
     },
-
     plugins: [react()],
-
-    define: {
-      "process.env.GEMINI_API_KEY": JSON.stringify(env.GEMINI_API_KEY),
-      "process.env.MONGODB_URI": JSON.stringify(env.MONGODB_URI),
-    },
-
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./"),
       },
     },
-  };
-});
+    define: {
+      // ❗ Do NOT put secrets here
+      "process.env.NODE_ENV": JSON.stringify(mode),
+    },
+  });
+};
