@@ -1,24 +1,14 @@
-// api/saveChat.ts
-// Serverless endpoint to persist chat documents to MongoDB.
-// Place at: /api/saveChat.ts
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI || "";
-if (!uri) console.warn("Warning: MONGODB_URI not set in env");
-
 declare global {
-  // allow global caching across invocations
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  var _mongoClientPromise: any;
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
-
-let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
 if (!global._mongoClientPromise) {
-  client = new MongoClient(uri);
+  const client = new MongoClient(uri);
   clientPromise = client.connect();
   global._mongoClientPromise = clientPromise;
 } else {
@@ -33,12 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
     const client = await clientPromise;
-    const db = client.db("ziva"); // optional: change DB name
+    const db = client.db("ziva");
     const col = db.collection("chats");
 
-    const doc = { prompt, response: response ?? null, createdAt: new Date() };
-    await col.insertOne(doc);
-
+    await col.insertOne({ prompt, response: response ?? null, createdAt: new Date() });
     return res.status(200).json({ success: true });
   } catch (err: any) {
     console.error("saveChat error:", err);
