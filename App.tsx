@@ -1,4 +1,4 @@
-
+import TestDb from "./components/common/TestDb";
 import React, { useState, useCallback, useEffect } from 'react';
 import { User, Role, Notification, PlatformFeeConfig, Review } from './types';
 import { MOCK_USERS, MOCK_SERVICES, MOCK_BOOKINGS, MOCK_OFFERS, MOCK_QUERIES, MOCK_REVIEWS } from './constants';
@@ -170,3 +170,8 @@ const App: React.FC = () => {
 };
 
 export default App;
+<div>
+  {/* your existing UI */}
+  
+  <TestDb />   {/* 👈 MongoDB Test Panel */}
+</div>
