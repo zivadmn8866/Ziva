@@ -1,49 +1,41 @@
 // api/testDb.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || "";
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error('MONGODB_URI not set');
+}
 
-// Reuse cached client in Vercel serverless
 let cachedClient: MongoClient | null = null;
 
 async function getClient() {
-  if (cachedClient && cachedClient.topology?.isConnected()) {
+  if (cachedClient && cachedClient.isConnected && cachedClient.topology) {
     return cachedClient;
   }
-
-  const client = new MongoClient(uri, { maxPoolSize: 10 });
+  const client = new MongoClient(uri as string);
   await client.connect();
   cachedClient = client;
   return client;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!process.env.MONGODB_URI) {
-    return res.status(500).json({ ok: false, error: "Missing MONGODB_URI environment variable" });
-  }
-
   try {
     const client = await getClient();
-    const db = client.db("ziva_test");
-    const col = db.collection("ping");
-
-    if (req.method === "POST") {
-      const doc = {
-        testing: true,
-        time: new Date(),
-        userAgent: req.headers["user-agent"] || null,
-      };
-      const result = await col.insertOne(doc);
-      return res.status(200).json({ ok: true, insertedId: result.insertedId });
+    const db = client.db('ziva'); // change db name if you prefer
+    // Ping:
+    const ping = await db.admin().ping();
+    // Insert test doc on POST:
+    if (req.method === 'POST') {
+      const col = db.collection('testcollection');
+      const doc = { createdAt: new Date(), body: req.body || { test: true } };
+      const r = await col.insertOne(doc);
+      return res.status(200).json({ ok: true, insertedId: r.insertedId, ping });
     }
-
-    // GET: Return last inserted document
-    const last = await col.find().sort({ time: -1 }).limit(1).toArray();
-    return res.status(200).json({ ok: true, last: last[0] || null });
-
+    // Default GET response:
+    return res.status(200).json({ ok: true, ping });
   } catch (err: any) {
-    console.error("MongoDB test error:", err);
-    return res.status(500).json({ ok: false, error: err.message || String(err) });
+    console.error('mongo error', err);
+    return res.status(500).json({ ok: false, error: String(err.message || err) });
   }
 }
