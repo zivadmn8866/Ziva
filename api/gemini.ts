@@ -2,45 +2,46 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  // Defensive parsing (Vercel may pass req.body as string)
-  let body = req.body ?? {};
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch (e) {
-      return res.status(400).json({ error: "Invalid JSON" });
-    }
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const prompt = String(body.prompt ?? "");
-  if (!prompt) return res.status(400).json({ error: "Missing prompt" });
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "Server missing GEMINI_API_KEY" });
-
   try {
-    const model = "models/text-bison-001"; // change if needed
-    // Google Generative Language REST endpoint
-    const url = `https://generativelanguage.googleapis.com/v1/${model}:generate?key=${apiKey}`;
+    const { prompt } = req.body ?? {};
+    if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
-    const payload = {
-      prompt: { text: prompt }
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.status(500).json({ error: "Server missing GEMINI_API_KEY" });
+
+    // Generative Language REST endpoint (model: text-bison-001)
+    const url = `https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generate?key=${encodeURIComponent(key)}`;
+
+    const body = {
+      prompt: {
+        text: String(prompt)
+      },
+      // optional: set temperature / max output tokens etc
+      // temperature: 0.2,
+      // maxOutputTokens: 256
     };
 
     const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
     });
 
-    const text = await r.text();
     if (!r.ok) {
-      // return upstream error body for debugging
-      return res.status(502).json({ error: "Upstream error", status: r.status, body: text });
+      const txt = await r.text();
+      console.error("Generative API error:", r.status, txt);
+      return res.status(502).json({ error: "Generative API error", status: r.status, body: txt });
     }
 
-    const json = JSON.parse(text);
-    return res.status(200).json({ success: true, result: json });
+    const data = await r.json();
+    // data has the model output; shape depends on API version (e.g. .candidates[0].output or .output...).
+    return res.status(200).json({ success: true, result: data });
   } catch (err: any) {
     console.error("api/gemini error:", err);
     return res.status(500).json({ error: err?.message || String(err) });
