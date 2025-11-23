@@ -1,42 +1,35 @@
 // api/saveChat.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { MongoClient } from "mongodb";
+import admin from "firebase-admin";
 
-const uri = process.env.MONGODB_URI || "";
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-}
-let clientPromise: Promise<MongoClient>;
+const FIREBASE_SA_ENV = process.env.FIREBASE_SERVICE_ACCOUNT || "";
 
-if (!global._mongoClientPromise) {
-  const client = new MongoClient(uri);
-  clientPromise = client.connect();
-  global._mongoClientPromise = clientPromise;
-} else {
-  clientPromise = global._mongoClientPromise;
+function initFirebase() {
+  if (!admin.apps.length) {
+    if (!FIREBASE_SA_ENV) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT env var");
+    const serviceAccount = JSON.parse(FIREBASE_SA_ENV);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  }
+  return admin.firestore();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // defensive parse
-  let body = req.body ?? {};
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch (e) {
-      return res.status(400).json({ error: "Invalid JSON" });
-    }
-  }
-
   try {
-    const { prompt, response } = body;
+    const { prompt, response } = req.body ?? {};
     if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
-    const client = await clientPromise;
-    const db = client.db("ziva");
-    const col = db.collection("chats");
+    const db = initFirebase();
+    const docRef = await db.collection("chats").add({
+      prompt,
+      response: response ?? null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
 
-    await col.insertOne({ prompt, response: response ?? null, createdAt: new Date() });
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, id: docRef.id });
   } catch (err: any) {
     console.error("saveChat error:", err);
     return res.status(500).json({ error: String(err) });
