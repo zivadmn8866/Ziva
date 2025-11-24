@@ -47,5 +47,5 @@ export const ManicureIcon = (props: { className?: string }) => (
     <path d="M12 21H3" />
     <path d="m17 11 4 4" />
   </svg>
-)
+);
    
