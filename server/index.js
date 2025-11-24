@@ -1,19 +1,22 @@
 import express from "express";
-import cors from "cors";
+import admin from "firebase-admin";
 
-import geminiRoute from "../routes/gemini.js";
-import saveChatRoute from "../routes/saveChat.js";
+const base64 = process.env.SERVICE_ACCOUNT_BASE64;
+if (!base64) {
+  console.error("❌ SERVICE_ACCOUNT_BASE64 missing");
+  process.exit(1);
+}
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const serviceAccount = JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
 
-app.get("/", (req, res) => {
-  res.send("Ziva backend running");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
 });
 
-app.use("/api/gemini", geminiRoute);
-app.use("/api/saveChat", saveChatRoute);
+const app = express();
+app.use(express.json());
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log("Server running on port", PORT));
+app.get("/test", (req, res) => res.send("Firebase Admin Working!"));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
