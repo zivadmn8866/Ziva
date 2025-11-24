@@ -1,16 +1,25 @@
-git clone https://github.com/zivadmn8866/Ziva.git
-cd Ziva
+// server/index.js
+import express from "express";
+import cors from "cors";
 
-# move everything out of nested server folder into top-level server
-git mv server/server/* server/
+console.log("DEBUG: Starting server...");
+console.log("DEBUG: CWD =", process.cwd());
 
-# if there are hidden files (like package.json) that didn't move, move them explicitly:
-git mv server/server/package.json server/ || true
-git mv server/server/.env.local server/ || true
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-# remove now-empty nested folder
-git rm -r server/server
+// Basic root route
+app.get("/", (req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
 
-git add -A
-git commit -m "Flatten server folder: move nested server/* to server/"
-git push origin main   # or your branch
+// health-check for Render
+app.get("/healthz", (req, res) => {
+  res.send("ok");
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});
