@@ -172,6 +172,3 @@ const App: React.FC = () => {
 export default App;
 <div>
   {/* your existing UI */}
-  
-  <TestDb />   {/* 👈 MongoDB Test Panel */}
-</div>
